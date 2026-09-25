@@ -23,9 +23,9 @@ jobs:
 
       - name: Get config.json
         run: |
-          echo "====== check config.josn file ======"
+          echo "====== check config.json file ======"
           cat config.json
-          echo "====== check config.josn end  ======"
+          echo "====== check config.json end  ======"
           sudo apt-get install jq
 
       - name: Set up Python
@@ -46,7 +46,7 @@ jobs:
           pip install --upgrade pip
           pip install -r /opt/Gmeek/requirements.txt
 
-      - name: Generate new html
+      - name: Generate data (Gmeek.py)
         run: |
           cp -r ./* /opt/Gmeek/
           cd /opt/Gmeek/
@@ -54,7 +54,32 @@ jobs:
           cp -a /opt/Gmeek/docs ${{ github.workspace }} 
           cp -a /opt/Gmeek/backup ${{ github.workspace }} 
           cp /opt/Gmeek/blogBase.json ${{ github.workspace }} 
-          
+
+      - name: Transform data for frontend
+        run: |
+          python frontend/scripts/generate.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm install --no-audit --no-fund
+
+      - name: Build frontend (Vike SSG)
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Merge frontend build into docs
+        run: |
+          rm -rf docs
+          cp -a frontend/dist/client/. docs/
+          cp rss.xml docs/rss.xml
+
       - name: update html
         run: |
           git config --local user.email "$(jq -r ".email" config.json)"
