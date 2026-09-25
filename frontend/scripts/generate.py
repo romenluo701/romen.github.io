@@ -53,6 +53,18 @@ def rfc822(created_at: int) -> str:
     return time.strftime('%a, %d %b %Y %H:%M:%S +0000', time.gmtime(created_at))
 
 
+def derive_repo(raw_posts) -> str:
+    """从 postSourceUrl 提取 repo：https://github.com/{owner}/{repo}/issues/{n} -> owner/repo"""
+    for key in raw_posts:
+        if key == 'labelColorDict':
+            continue
+        src = raw_posts[key].get('postSourceUrl', '')
+        m = re.match(r'https?://github\.com/([^/]+/[^/]+)/issues', src)
+        if m:
+            return m.group(1)
+    return ''
+
+
 def build_rss(site, posts, full_posts):
     """手写 RSS 2.0，避免额外依赖。post link 使用新站 URL 格式。"""
     base = site['homeUrl'].rstrip('/')
@@ -104,11 +116,11 @@ def main():
         blog = json.load(f)
 
     home_url = blog.get('homeUrl', '')
-    # 从 homeUrl 推导 repo：https://user.github.io/repo -> user/repo
-    no_proto = home_url.replace('https://', '').replace('http://', '')
-    domain, _sep, repo_name = no_proto.partition('/')
-    owner = domain.replace('.github.io', '')
-    repo = owner + '/' + repo_name if repo_name else owner
+    label_color_dict = blog.get('labelColorDict', {})
+    raw_posts = blog.get('postListJson', {})
+
+    # 从 postSourceUrl 提取 repo（自定义域名下 homeUrl 无法推导 repo）
+    repo = derive_repo(raw_posts)
 
     site = {
         'title': blog.get('title', ''),
@@ -117,9 +129,6 @@ def main():
         'homeUrl': home_url,
         'repo': repo,
     }
-
-    label_color_dict = blog.get('labelColorDict', {})
-    raw_posts = blog.get('postListJson', {})
 
     full_posts = {}
     posts = []
